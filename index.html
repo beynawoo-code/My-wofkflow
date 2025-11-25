@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我的工作流导航</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #334155;
+            --text-light: #94a3b8;
+            --border: #e2e8f0;
+            --tag-bg: #e0e7ff;
+            --tag-text: #4338ca;
+            --note-bg: #fffbeb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- 布局容器 --- */
+        .app-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* 📱 手机端样式 */
+        .main-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            position: relative;
+            overflow: hidden;
+        }
+        .side-column {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            background: #fff;
+            overflow: hidden;
+        }
+        .app-container.view-notes .main-column { display: none; }
+        .app-container.view-notes .side-column { display: flex; }
+
+        /* 💻 电脑端双栏布局 (>= 800px) */
+        @media (min-width: 800px) {
+            .app-container {
+                flex-direction: row;
+                padding: 20px;
+                gap: 20px;
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+            .main-column {
+                flex: 7; /* 70% 任务区 */
+                background: white;
+                border-radius: 16px;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+                display: flex !important;
+            }
+            .side-column {
+                flex: 3; /* 30% 笔记区 */
+                display: flex !important;
+                background: white;
+                border-radius: 16px;
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+                border-left: 1px solid var(--border);
+            }
+            #tab-notes-mobile { display: none !important; }
+            .btn-close-notes { display: none !important; }
+        }
+
+        /* --- 左侧样式 --- */
+        header {
+            padding: 20px 20px 10px 20px;
+            background: var(--card-bg);
+            flex-shrink: 0;
+            z-index: 10;
+        }
+        
+        .scroll-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            -ms-overflow-style: none; scrollbar-width: none;
+        }
+        .scroll-content::-webkit-scrollbar { display: none; }
+
+        .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        #page-title { font-size: 1.4rem; font-weight: 800; margin: 0; cursor: pointer; border-bottom: 2px solid transparent;}
+        #page-title:focus { outline: none; border-bottom-color: var(--primary); background: #eff6ff; }
+        .datetime-box { text-align: right; }
+        .date-line { font-size: 0.9rem; font-weight: 600; }
+        .time-line { font-size: 1.1rem; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+
+        .search-box { position: relative; margin-bottom: 10px; }
+        .search-input { width: 100%; padding: 10px 10px 10px 36px; border: 1px solid var(--border); border-radius: 10px; background: #f1f5f9; box-sizing: border-box; }
+        .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-light); }
+        
+        .tag-filter-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 5px; scrollbar-width: none; }
+        .tag-filter-bar::-webkit-scrollbar { display: none; }
+        .filter-chip { padding: 6px 14px; background: #f1f5f9; border-radius: 20px; font-size: 0.85rem; cursor: pointer; white-space: nowrap; transition: 0.2s;}
+        .filter-chip.active { background: var(--tag-text); color: white; }
+
+        .btn-start { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; padding: 12px; border-radius: 12px; width: 100%; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; cursor: pointer; }
+        
+        .tab-container { display: flex; background: #f1f5f9; padding: 4px; border-radius: 10px; margin-top: 15px; }
+        .tab-item { flex: 1; text-align: center; padding: 8px 0; font-size: 0.9rem; border-radius: 8px; cursor: pointer; color: var(--text-light); }
+        .tab-item.active { background: white; color: var(--primary); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        #task-list { list-style: none; padding: 0; margin: 0; }
+        .task-card { background: var(--card-bg); padding: 16px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; border-left: 4px solid transparent; }
+        .task-card.type-cycle { border-left-color: var(--primary); }
+        .task-card.type-once { border-left-color: var(--warning); }
+        .task-card.is-expired { opacity: 0.7; border-left-color: #ccc;}
+        .task-card.status-error { border: 2px solid var(--danger); background: #fef2f2; }
+        .task-card.status-success { border: 1px solid var(--success); background: #f0fdf4; }
+
+        .task-content { flex: 1; overflow: hidden; cursor: pointer; }
+        .task-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;}
+        .time-tag { font-weight: 700; color: var(--text); font-size: 1.1rem; }
+        .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: var(--text-light); }
+        .tag-pill { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: var(--tag-bg); color: var(--tag-text); }
+        .task-name { font-weight: 600; }
+        .task-url { font-size: 0.8rem; color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;}
+        
+        .task-actions { display: flex; gap: 8px; margin-left: 10px; }
+        .action-btn { background: transparent; border: 1px solid var(--border); border-radius: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-light); }
+        .retry-btn { display: none; background: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
+        .status-error .retry-btn { display: block; }
+
+        /* FAB */
+        .fab { 
+            position: absolute; bottom: 30px; right: 30px; 
+            width: 56px; height: 56px; background: var(--primary); color: white; 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+            font-size: 26px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); 
+            cursor: pointer; z-index: 100; transition: transform 0.2s;
+        }
+        .fab:hover { transform: scale(1.05); }
+
+        /* --- 右侧样式 --- */
+        .notes-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #fff; }
+        .notes-title { font-size: 1.2rem; font-weight: 800; color: #b45309; }
+        .note-input-box { padding: 15px; background: #fffbeb; border-bottom: 1px solid #fcd34d; }
+        #newNoteInput { width: 100%; border: none; background: transparent; font-size: 1rem; resize: none; outline: none; min-height: 60px; font-family: inherit; }
+        .note-tools { display: flex; justify-content: flex-end; margin-top: 5px; }
+        .btn-add-note { background: #f59e0b; color: white; border: none; padding: 6px 15px; border-radius: 15px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+
+        .notes-list { padding: 15px; overflow-y: auto; flex: 1; }
+        .note-card { background: #fff; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s; }
+        .note-card.archived { opacity: 0.6; background: #f9fafb; border-color: #e5e7eb; display: none; }
+        .note-card:hover { transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+
+        .note-meta { display: flex; justify-content: space-between; color: #9ca3af; font-size: 0.75rem; margin-bottom: 6px; }
+        .note-content { white-space: pre-wrap; line-height: 1.5; color: #4b5563; outline: none; cursor: text; }
+        .note-content:focus { background: #fffbeb; padding: 2px; border-radius: 4px; }
+        .note-footer { margin-top: 10px; display: flex; justify-content: flex-end; gap: 8px; opacity: 0; transition: opacity 0.2s; }
+        .note-card:hover .note-footer { opacity: 1; }
+        .note-btn { font-size: 0.75rem; color: #6b7280; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+        .note-btn:hover { background: #f3f4f6; color: var(--primary); }
+        .note-btn.del:hover { color: var(--danger); }
+        .archive-toggle { text-align: center; padding: 10px; font-size: 0.85rem; color: var(--text-light); cursor: pointer; border-top: 1px solid var(--border); }
+
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal-overlay.open { display: flex; }
+        .modal { background: white; width: 85%; max-width: 400px; border-radius: 16px; padding: 24px; max-height: 90vh; overflow-y: auto; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; box-sizing: border-box;}
+        .tag-input-area { border: 1px solid var(--border); border-radius: 8px; padding: 8px; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;}
+        .modal-tag { background: var(--tag-bg); color: var(--tag-text); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;}
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 24px; border-radius: 20px; font-size: 0.9rem; z-index: 300; display: none; }
+    </style>
+</head>
+<body>
+
+<div id="toast" class="toast">提示</div>
+
+<div class="app-container" id="appContainer">
+    
+    <!-- 左栏：工作流 (70%) -->
+    <div class="main-column">
+        <header>
+            <div class="header-top">
+                <div><h1 id="page-title" contenteditable="true" spellcheck="false">我的工作流</h1></div>
+                <div class="datetime-box">
+                    <div class="date-line" id="header-date">--月--日</div>
+                    <div class="time-line" id="header-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" class="search-input" placeholder="搜索任务..." oninput="handleSearch()">
+            </div>
+            <div class="tag-filter-bar" id="tagFilterBar"></div>
+            <button class="btn-start" onclick="batchOpen()"><span>🚀 一键开始今日工作</span></button>
+            <div class="tab-container">
+                <div class="tab-item active" onclick="switchView('today')" id="tab-today">今日待办</div>
+                <div class="tab-item" onclick="switchView('all')" id="tab-all">全部任务</div>
+                <div class="tab-item" onclick="switchView('expired')" id="tab-expired">🗑️ 已过期</div>
+                <div class="tab-item" onclick="switchView('notes')" id="tab-notes-mobile" style="color:#b45309;">📝 随心记</div>
+            </div>
+        </header>
+
+        <div class="scroll-content">
+            <ul id="task-list"></ul>
+            <div style="height: 60px;"></div>
+        </div>
+        <!-- FAB位于任务区内 -->
+        <div class="fab" id="taskFab" onclick="openModal(null)" title="添加任务">+</div>
+    </div>
+
+    <!-- 右栏：笔记 (30%) -->
+    <div class="side-column">
+        <div class="notes-header">
+            <span class="notes-title">📝 随心笔记</span>
+            <span class="btn-close-notes" style="font-size:0.8rem; color:#999; cursor:pointer;" onclick="switchView('today')">✕ 关闭</span>
+        </div>
+        <div class="note-input-box">
+            <textarea id="newNoteInput" placeholder="写点什么... (Ctrl+Enter保存)"></textarea>
+            <div class="note-tools"><button class="btn-add-note" onclick="addNote()">保存笔记</button></div>
+        </div>
+        <div class="notes-list" id="notesList"></div>
+        <div class="archive-toggle" onclick="toggleArchiveView()">
+            <span id="archiveToggleText">显示已归档笔记</span>
+        </div>
+    </div>
+</div>
+
+<!-- 弹窗部分 -->
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+        <h3 style="margin-top:0">任务管理</h3>
+        <input type="text" id="inName" class="form-control" placeholder="名称 (如: 百度)">
+        <input type="text" id="inUrl" class="form-control" placeholder="网址 (如: baidu.com)">
+        <label style="font-size:0.9rem; font-weight:600; display:block; margin-bottom:5px;">标签</label>
+        <div class="tag-input-area" onclick="document.getElementById('inTagInput').focus()">
+            <div id="modalTagPills" style="display:inline;"></div>
+            <input type="text" id="inTagInput" style="border:none; outline:none; font-size:0.9rem;" placeholder="输入回车...">
+        </div>
+        <input type="time" id="inTime" class="form-control" value="09:30" style="margin-top:10px;">
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <button class="form-control" onclick="toggleMode('cycle')" id="btnCycle">每周重复</button>
+            <button class="form-control" onclick="toggleMode('once')" id="btnOnce">指定日期</button>
+        </div>
+        <div id="panel-cycle">
+            <div style="display:flex; gap:2px;">
+                <button class="week-btn" data-day="1">一</button><button class="week-btn" data-day="2">二</button>
+                <button class="week-btn" data-day="3">三</button><button class="week-btn" data-day="4">四</button>
+                <button class="week-btn" data-day="5">五</button><button class="week-btn" data-day="6">六</button>
+                <button class="week-btn" data-day="0">日</button>
+            </div>
+        </div>
+        <div id="panel-once" style="display:none;"><input type="date" id="inDate" class="form-control"></div>
+        <div style="margin-top:15px; display:flex; gap:10px;">
+            <button class="form-control" style="background:#f3f4f6; border:none;" onclick="closeModal()">取消</button>
+            <button class="form-control" style="background:var(--primary); color:white; border:none;" onclick="saveTask()">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. 初始化与默认数据 (关键修改)
+    // ==========================================
+    const defaultData = {
+        title: "默认工作流导航",
+        tasks: [
+            {
+                name: "百度搜索",
+                url: "https://www.baidu.com",
+                time: "09:00",
+                type: "cycle",
+                days: [], // 每天
+                autoOpen: true,
+                tags: ["搜索", "常用"],
+                status: ""
+            },
+            {
+                name: "公司邮箱 (示例)",
+                url: "https://mail.qq.com",
+                time: "09:30",
+                type: "cycle",
+                days: [],
+                autoOpen: true,
+                tags: ["办公"],
+                status: ""
+            },
+            {
+                name: "AI 助手 (ChatGPT)",
+                url: "https://chat.openai.com",
+                time: "10:00",
+                type: "cycle",
+                days: [],
+                autoOpen: false,
+                tags: ["工具", "AI"],
+                status: ""
+            },
+            {
+                name: "周五工作汇报",
+                url: "https://docs.qq.com/",
+                time: "17:30",
+                type: "cycle",
+                days: [5], // 周五
+                autoOpen: false,
+                tags: ["汇报"],
+                status: ""
+            }
+        ],
+        notes: [
+            {
+                id: 1700000000001,
+                content: "👋 欢迎使用！\n\n1. 左侧是任务区，右侧是笔记区 (7:3 比例)。\n2. 点击任务右侧的 ✎ 可修改，× 可删除。\n3. 所有数据保存在本地浏览器中，请放心使用。",
+                createTime: Date.now(),
+                archived: false
+            }
+        ]
+    };
+
+    // 使用 V8_Deploy 作为Key，确保新用户能加载到上面的默认数据
+    let appData = JSON.parse(localStorage.getItem('workflowDataV8_Deploy')) || defaultData;
+
+    let currentView = 'today';
+    let showArchivedNotes = false;
+    let editingIndex = null;
+    let currentTagFilter = null;
+    let tempTags = [];
+    let selectedDays = [];
+    let currentTaskType = 'cycle';
+    let searchQuery = '';
+    const daysMap = ['日', '一', '二', '三', '四', '五', '六'];
+
+    function init() {
+        document.getElementById('page-title').innerText = appData.title;
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('header-date').innerText = `${now.getMonth()+1}月${now.getDate()}日 星期${daysMap[now.getDay()]}`;
+            document.getElementById('header-time').innerText = now.toLocaleTimeString('en-GB', {hour12:false});
+        }, 1000);
+
+        renderTagFilterBar();
+        renderList();
+        renderNotes();
+
+        // 事件绑定
+        document.getElementById('newNoteInput').addEventListener('keydown', (e) => {
+            if(e.ctrlKey && e.key === 'Enter') addNote();
+        });
+        document.getElementById('inTagInput').addEventListener('keydown', (e) => {
+            if(e.key==='Enter') {
+                e.preventDefault();
+                if(e.target.value.trim()) {
+                    tempTags.push(e.target.value.trim());
+                    e.target.value = '';
+                    renderModalTags();
+                }
+            }
+        });
+        document.getElementById('page-title').addEventListener('blur', (e) => {
+            appData.title = e.target.innerText; saveData();
+        });
+    }
+
+    function switchView(view) {
+        currentView = view;
+        const app = document.getElementById('appContainer');
+        const fab = document.getElementById('taskFab');
+        
+        document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+        if(document.getElementById(`tab-${view}`)) {
+            document.getElementById(`tab-${view}`).classList.add('active');
+        }
+
+        if(view === 'notes') {
+            app.classList.add('view-notes');
+            fab.style.display = 'none';
+        } else {
+            app.classList.remove('view-notes');
+            fab.style.display = 'flex';
+            renderList();
+        }
+    }
+
+    // ==========================================
+    // 2. 笔记逻辑
+    // ==========================================
+    function renderNotes() {
+        const list = document.getElementById('notesList');
+        list.innerHTML = '';
+        const notes = appData.notes.sort((a,b) => b.createTime - a.createTime);
+
+        notes.forEach(note => {
+            if(note.archived && !showArchivedNotes) return;
+            const div = document.createElement('div');
+            div.className = `note-card ${note.archived ? 'archived' : ''}`;
+            if(showArchivedNotes && note.archived) div.style.display = 'block';
+            const dateStr = new Date(note.createTime).toLocaleString();
+
+            div.innerHTML = `
+                <div class="note-meta">
+                    <span>${dateStr}</span>
+                    <span>${note.archived ? '已归档' : ''}</span>
+                </div>
+                <div class="note-content" contenteditable="true" onblur="updateNoteContent(${note.id}, this)">${note.content}</div>
+                <div class="note-footer">
+                    <span class="note-btn" onclick="toggleArchiveNote(${note.id})">${note.archived ? '还原' : '归档'}</span>
+                    <span class="note-btn del" onclick="deleteNote(${note.id})">删除</span>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    function addNote() {
+        const input = document.getElementById('newNoteInput');
+        const content = input.value.trim();
+        if(!content) return;
+        appData.notes.unshift({ id: Date.now(), content: content, createTime: Date.now(), archived: false });
+        input.value = '';
+        saveData(); renderNotes(); showToast('笔记已添加');
+    }
+    function updateNoteContent(id, el) {
+        const note = appData.notes.find(n => n.id === id);
+        if(note) { note.content = el.innerText; saveData(); }
+    }
+    function toggleArchiveNote(id) {
+        const note = appData.notes.find(n => n.id === id);
+        if(note) { note.archived = !note.archived; saveData(); renderNotes(); }
+    }
+    function deleteNote(id) {
+        if(confirm('删除这条笔记？')) { appData.notes = appData.notes.filter(n => n.id !== id); saveData(); renderNotes(); }
+    }
+    function toggleArchiveView() {
+        showArchivedNotes = !showArchivedNotes;
+        document.getElementById('archiveToggleText').innerText = showArchivedNotes ? '隐藏已归档笔记' : '显示已归档笔记';
+        renderNotes();
+    }
+
+    // ==========================================
+    // 3. 任务列表逻辑
+    // ==========================================
+    function renderList() {
+        const listEl = document.getElementById('task-list');
+        listEl.innerHTML = '';
+        const todayStr = new Date(new Date()-new Date().getTimezoneOffset()*60000).toISOString().split('T')[0];
+        const dayIdx = new Date().getDay();
+
+        let tasks = appData.tasks.filter(t => {
+            if(searchQuery) return t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.url.toLowerCase().includes(searchQuery.toLowerCase());
+            let isExpired = t.type === 'once' && t.date < todayStr;
+            if(currentView === 'expired') return isExpired;
+            if(isExpired) return false;
+            let isToday = (t.type === 'once' && t.date === todayStr) || (t.type === 'cycle' && (t.days.length===0 || t.days.includes(dayIdx)));
+            if(currentView === 'today' && !isToday) return false;
+            if(currentTagFilter && (!t.tags || !t.tags.includes(currentTagFilter))) return false;
+            return true;
+        });
+        
+        tasks.sort((a,b) => a.time.localeCompare(b.time));
+
+        if(tasks.length === 0) {
+            listEl.innerHTML = '<li style="text-align:center;color:#999;padding:40px;">暂无任务</li>';
+            return;
+        }
+
+        tasks.forEach((t, idx) => {
+            const li = document.createElement('li');
+            li.className = `task-card type-${t.type}`;
+            let tagsHtml = (t.tags||[]).map(tag => `<span class="tag-pill">${tag}</span>`).join(' ');
+            
+            li.innerHTML = `
+                <div class="task-content" onclick="window.open('${t.url}')">
+                    <div class="task-header">
+                        <span class="time-tag">${t.time}</span>
+                        ${t.autoOpen ? '<span class="badge" style="color:#059669">⚡</span>' : ''}
+                        ${tagsHtml}
+                    </div>
+                    <div class="task-name">${t.name}</div>
+                </div>
+                <div class="task-actions">
+                    <button class="action-btn" onclick="openModal(${appData.tasks.indexOf(t)})">✎</button>
+                    <button class="action-btn" style="color:#ef4444" onclick="deleteTask(${appData.tasks.indexOf(t)})">×</button>
+                </div>
+            `;
+            listEl.appendChild(li);
+        });
+    }
+
+    function renderTagFilterBar() {
+        const bar = document.getElementById('tagFilterBar');
+        const allTags = new Set();
+        appData.tasks.forEach(t => (t.tags||[]).forEach(tag => allTags.add(tag)));
+        let html = `<span class="filter-chip ${!currentTagFilter?'active':''}" onclick="currentTagFilter=null;renderTagFilterBar();renderList()">全部</span>`;
+        allTags.forEach(tag => {
+            html += `<span class="filter-chip ${currentTagFilter===tag?'active':''}" onclick="currentTagFilter='${tag}';renderTagFilterBar();renderList()">${tag}</span>`;
+        });
+        bar.innerHTML = html;
+    }
+
+    function openModal(index) {
+        editingIndex = index;
+        document.getElementById('modal').classList.add('open');
+        const t = index !== null ? appData.tasks[index] : {name:'', url:'', time:'09:30', autoOpen:true, type:'cycle', days:[], tags:[]};
+        
+        document.getElementById('inName').value = t.name;
+        document.getElementById('inUrl').value = t.url;
+        document.getElementById('inTime').value = t.time;
+        tempTags = t.tags ? [...t.tags] : [];
+        selectedDays = t.days ? [...t.days] : [];
+        currentTaskType = t.type;
+        
+        if(t.type==='once') {
+             document.getElementById('inDate').value = t.date || new Date().toISOString().split('T')[0];
+             toggleMode('once');
+        } else {
+            toggleMode('cycle');
+        }
+        renderModalTags();
+        updateWeekBtns();
+    }
+
+    function toggleMode(mode) {
+        currentTaskType = mode;
+        document.getElementById('panel-cycle').style.display = mode==='cycle'?'block':'none';
+        document.getElementById('panel-once').style.display = mode==='once'?'block':'none';
+        document.getElementById('btnCycle').style.background = mode==='cycle'?'#e0e7ff':'#f3f4f6';
+        document.getElementById('btnOnce').style.background = mode==='once'?'#e0e7ff':'#f3f4f6';
+    }
+    
+    document.querySelectorAll('.week-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const d = parseInt(this.dataset.day);
+            const i = selectedDays.indexOf(d);
+            if(i>-1) selectedDays.splice(i,1); else selectedDays.push(d);
+            updateWeekBtns();
+        });
+    });
+    function updateWeekBtns() {
+        document.querySelectorAll('.week-btn').forEach(btn => {
+            btn.style.background = selectedDays.includes(parseInt(btn.dataset.day)) ? 'var(--primary)' : 'white';
+            btn.style.color = selectedDays.includes(parseInt(btn.dataset.day)) ? 'white' : '#333';
+        });
+    }
+
+    function renderModalTags() {
+        document.getElementById('modalTagPills').innerHTML = tempTags.map(t => 
+            `<span class="modal-tag" onclick="tempTags=tempTags.filter(x=>x!=='${t}');renderModalTags()"> ${t} ×</span>`
+        ).join(' ');
+    }
+
+    function saveTask() {
+        const name = document.getElementById('inName').value;
+        let url = document.getElementById('inUrl').value;
+        if(!name || !url) return showToast('信息不全');
+        if(!url.startsWith('http')) url = 'https://'+url;
+
+        const task = {
+            name, url, 
+            time: document.getElementById('inTime').value,
+            autoOpen: true,
+            type: currentTaskType,
+            days: [...selectedDays],
+            date: document.getElementById('inDate').value,
+            tags: [...tempTags]
+        };
+
+        if(editingIndex===null) appData.tasks.push(task);
+        else appData.tasks[editingIndex] = task;
+        
+        saveData(); closeModal(); renderList(); renderTagFilterBar();
+    }
+
+    function deleteTask(idx) {
+        if(confirm('删除此任务？')) { appData.tasks.splice(idx,1); saveData(); renderList(); renderTagFilterBar(); }
+    }
+    
+    function closeModal() { document.getElementById('modal').classList.remove('open'); }
+    function saveData() { localStorage.setItem('workflowDataV8_Deploy', JSON.stringify(appData)); }
+    function showToast(msg) {
+        const t = document.getElementById('toast'); t.innerText=msg; t.style.display='block';
+        setTimeout(()=>t.style.display='none', 2000);
+    }
+    function handleSearch() { searchQuery = document.getElementById('searchInput').value; renderList(); }
+    function batchOpen() {
+        const todayStr = new Date(new Date()-new Date().getTimezoneOffset()*60000).toISOString().split('T')[0];
+        const dayIdx = new Date().getDay();
+        let count = 0;
+        appData.tasks.forEach(t => {
+            if(!t.autoOpen) return;
+            let run = (t.type==='once' && t.date===todayStr) || (t.type==='cycle' && (t.days.length===0 || t.days.includes(dayIdx)));
+            if(run) { window.open(t.url); count++; }
+        });
+        showToast(count>0 ? `已打开${count}个` : '无任务');
+    }
+
+    init();
+</script>
+</body>
+</html>
